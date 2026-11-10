@@ -9,7 +9,7 @@ import sqlglot
 from psycopg.rows import dict_row
 from dotenv import load_dotenv
 from sqlglot import exp
-from mcp.server import MCPServer
+from mcp.server.fastmcp import FastMCP
 
 load_dotenv()
 
@@ -17,7 +17,7 @@ load_dotenv()
 # MCP SERVER
 # -----------------------------
 
-mcp = MCPServer("Ecommerce Analytics Database")
+mcp = FastMCP("Ecommerce Analytics Database")
 
 
 # -----------------------------
@@ -231,4 +231,4 @@ def run_readonly_query(sql: str) -> str:
 
 if __name__ == "__main__":
 
-    mcp.run()
+    mcp.run(transport="stdio")
