@@ -150,22 +150,19 @@ def describe_table(table_name: str) -> str:
 def validate_sql(sql: str):
 
     try:
-
-        statements = sqlglot.parse(sql, read="postgres")
-
+        statements = sqlglot.parse(sql,read="postgres")
+        
         if len(statements) != 1 or statements[0] is None:
             return False, "Only one SQL statement is allowed."
-
+        
         expression = statements[0]
-
-        # Only read queries are permitted.
+        
         if not isinstance(
             expression,
-            (exp.Select, exp.Union, exp.Intersect, exp.Except)
+            (exp.Select,exp.Union,exp.Intersect,exp.Except)
         ):
             return False, "Only SELECT queries are allowed."
-
-        # Reject dangerous operations anywhere in the query tree.
+        
         forbidden = (
             exp.Insert,
             exp.Update,
@@ -174,19 +171,38 @@ def validate_sql(sql: str):
             exp.Drop,
             exp.Alter,
             exp.Command,
-            exp.Merge
+            exp.Merge,
+            exp.Transaction,
+            exp.Commit,
+            exp.Rollback,
+            exp.Set,
+            exp.Use,
+            exp.Copy,
         )
-
+            
         if any(expression.find_all(*forbidden)):
             return False, "Unsafe SQL operation detected."
-
+        
+        if any(expression.find_all(exp.Into)):
+            return False, "SELECT INTO is not allowed."
+        
         return True, "SQL validation successful."
-
+    
     except Exception as error:
+        return False, f"Invalid SQL : {str(error)}"
 
-        return False, f"Invalid SQL: {str(error)}"
-
-
+def validate_query_schema(sql:str):
+    try:
+        with get_connection() as conn:
+            conn.execute(
+                "EXPLAIN " + sql.rstrip().rstrip(";")
+            )
+            
+            return True, "Schema validation successful."
+        
+    except psycopg.Error as error:
+        return False, f"Query validation failed: {error.sqlstate}"
+    
 # -----------------------------
 # TOOL 3: EXECUTE READ-ONLY SQL
 # -----------------------------
@@ -199,7 +215,20 @@ def run_readonly_query(sql: str) -> str:
     is_valid, message = validate_sql(sql)
 
     if not is_valid:
-        return message
+        return json.dumps({
+            "success":False,
+            "stage":"sql_validation",
+            "error":message
+        })
+        
+    is_valid,message = validate_query_schema(sql)
+    
+    if not is_valid:
+        return json.dumps({
+            "success":False,
+            "stage":"schema_validation",
+            "error":message
+        })
 
     # Enforce a maximum result size.
     safe_sql = f"SELECT * FROM ({sql.rstrip().rstrip(';')}) AS limited_result LIMIT 500"

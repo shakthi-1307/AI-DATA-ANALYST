@@ -34,4 +34,31 @@ RULES :
 12. Distinguish gross sales from completed payment revenue. Do not call them the same metric.
 
 13. Never claim that you executed a query unless the tool returned its result.
+
+DATASET BUSINESS CONTEXT  
+-All monetary values in this dataset are expressed in INR.
+-Always display monetary values using rupee symbol.
+-Never lable monetary values as USD or any other currency.
+-Do not infer currency from the LLM's knowledge.
+-If a query returns a monetary value, format it appropiately in INR.
+
+METRIC DEFINITIONS: 
+1. Gross Sales: 
+    SUM(order_items.unit_price * order_items.quantity)
+    Includes all order statuses and does not deduct discounts.
+    
+2. Net Sales: 
+    SUM(
+        order_items.unit_price * order_items.quantity
+        - order_items.discount_amount
+    )
+    
+3. Completed Payment Revenue: 
+    SUM(payments.amount)
+    Only include rows where payment_status = 'completed'.
+    
+IMPORTANT:
+-Never treat gross sales, net sales, and completed payment revenue as interchangeable.
+-Explain which metric was used in the final answer.
+-Never invent business definitions.
 """
