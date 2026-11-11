@@ -1,21 +1,78 @@
 import os 
 import sys 
 import asyncio 
-from pathlib import Path 
-from typing import TypedDict, Annotated
 from dotenv import load_dotenv
-from langchain_groq import ChatGroq 
-from langchain_core.messages import SystemMessage,HumanMessage
-from langchain_core.messages import AnyMessage 
-from langgraph.graph import StateGraph, START, END 
-from langgraph.graph.message import add_messages
-from langgraph.prebuilt import ToolNode, tools_condition 
-from langchain_mcp_adapters.client import MultiServerMCPClient 
+
+from agent.graph import build_graph
+from agent.mcp_connect import mcp_client
+
+from langchain_core.messages import HumanMessage
 
 load_dotenv()
 
-PROJECT_ROOT = Path(__file__).resolve().parents[1]
-SERVER_PATH = PROJECT_ROOT / "scripts" / "db_mcp_server.py"
+async def main():
+    
+    client = mcp_client
+    
+    print("Connecting to PostgreSQL MCP server...")
+    
+    tools = await client.get_tools()
+    
+    print(f"Discovered {len(tools)} tools.")
+    
+    app = build_graph(tools)
+    
+    print("\nAI DATA ANALYST READY.")
+    
+    while True:
+        question = input("\nAsk a business question (or type exit) : ")
+        
+        if question.strip().lower() in ("exit","quit"):
+            break 
+        
+        if not question.strip():
+            break
+        
+        print("\nAnalyzing...")
+        
+        try:
+            result = await app.ainvoke(
+                {
+                    "messages":[
+                        HumanMessage(content = question)
+                    ]
+                },
+                config = {"recursion_limit":12}
+            )
+            
+            print("\n ------- AGENT EXECUTION TRACE ----")
+            
+            for message in result["messages"]:
+                if getattr(message, "tool_calls", None):
+                    print(f"\n[LLM] {message.__class__.__name__}")
+                    
+                    for tool_call in message.tool_calls:
+                        print(f"Tool : {tool_call['name']}")
+                        print(f"Arguments: {tool_call['args']}")
+                elif message.type == "tool":
+                    print(f"\n[TOOL RESULT] {message.name}")
+                    print(message.content)
+                    
+            print("\n --------- FINAL BUSINESS ANALYSIS -------\n")
+            
+            final_message = result["messages"][-1]
+            
+            print("\nBUSINESS ANALYSIS")
+            
+            print(final_message.content)
+            
+        except Exception as error:
+            print(f"\n Agent error : {error}")
 
-class AnlaystState(TypedDict):
-    messages: Annotated[list[AnyMessage], add_messages]
+if __name__ == "__main__":
+    asyncio.run(main())
+    
+    
+
+    
+    
