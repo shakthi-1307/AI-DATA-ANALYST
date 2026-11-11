@@ -207,50 +207,58 @@ def validate_query_schema(sql:str):
 # TOOL 3: EXECUTE READ-ONLY SQL
 # -----------------------------
 
+
 @mcp.tool()
 def run_readonly_query(sql: str) -> str:
     """Validate and execute a read-only PostgreSQL SELECT query.
     Returns at most 500 rows."""
 
+    # Layer 1: SQL syntax and safety validation
     is_valid, message = validate_sql(sql)
 
     if not is_valid:
         return json.dumps({
-            "success":False,
-            "stage":"sql_validation",
-            "error":message
-        })
-        
-    is_valid,message = validate_query_schema(sql)
-    
-    if not is_valid:
-        return json.dumps({
-            "success":False,
-            "stage":"schema_validation",
-            "error":message
+            "success": False,
+            "stage": "sql_validation",
+            "error": message
         })
 
-    # Enforce a maximum result size.
-    safe_sql = f"SELECT * FROM ({sql.rstrip().rstrip(';')}) AS limited_result LIMIT 500"
+    # Layer 2: Schema and query planning validation
+    is_valid, message = validate_query_schema(sql)
+
+    if not is_valid:
+        return json.dumps({
+            "success": False,
+            "stage": "schema_validation",
+            "error": message
+        })
+
+    # Layer 3: Execute query
+    safe_sql = (
+        f"SELECT * FROM ({sql.rstrip().rstrip(';')}) "
+        "AS limited_result LIMIT 500"
+    )
 
     try:
 
         with get_connection() as conn:
-
             rows = conn.execute(safe_sql).fetchall()
 
         return json.dumps({
             "success": True,
+            "stage": "execution",
             "row_count": len(rows),
             "truncated_or_limited": len(rows) == 500,
             "results": rows
         }, default=str)
 
-    except Exception as error:
+    except psycopg.Error as error:
 
         return json.dumps({
             "success": False,
-            "error": str(error)
+            "stage": "execution",
+            "error": "PostgreSQL query execution failed.",
+            "sqlstate": error.sqlstate
         })
 
 

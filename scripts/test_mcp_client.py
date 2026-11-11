@@ -72,6 +72,24 @@ async def main():
     print(result)
 
     print("\nALL TESTS COMPLETED")
+    
+    
+    print("\nTEST: Invalid column")
+
+    result = await tools[2].ainvoke({
+        "sql": "SELECT nonexistent_column FROM products"
+    })
+
+    print(result)
+    
+    print("\nTEST: Unsafe DELETE")
+
+    result = await tools[2].ainvoke({
+        "sql": "DELETE FROM products"
+    })
+
+    print(result)
+
 
 
 if __name__ == "__main__":
