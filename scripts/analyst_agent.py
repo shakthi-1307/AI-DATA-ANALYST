@@ -40,7 +40,8 @@ async def main():
                 {
                     "messages":[
                         HumanMessage(content = question)
-                    ]
+                    ],
+                    "sql_retry_count":0
                 },
                 config = {"recursion_limit":12}
             )

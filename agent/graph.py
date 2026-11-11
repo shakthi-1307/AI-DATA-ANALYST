@@ -5,13 +5,16 @@ from langgraph.graph import StateGraph, START, END
 from langgraph.graph.message import add_messages
 from langgraph.prebuilt import ToolNode, tools_condition
 from langchain_core.messages import SystemMessage, AnyMessage
-
+import json
+from langchain_core.messages import ToolMessage
 from agent.llm import llm
 from agent.system_prompt import SYSTEM_PROMPT
 
+MAX_SQL_RETRIES = 2
 
 class AnalystState(TypedDict):
     messages: Annotated[list[AnyMessage], add_messages]
+    sql_retry_count: int
 
 
 def build_graph(tools):
@@ -49,7 +52,5 @@ def build_graph(tools):
 
     return graph.compile()
 
-    
-    
-    
+                
     
