@@ -81,7 +81,7 @@ def retry_node(state:AnalystState):
             HumanMessage(
                 content = (
                     "Your previous SQL query failed. "
-                    "Insepct the database error, correct the SQL query, and try again. "
+                    "Inspect the database error, correct the SQL query, and try again. "
                     "Do not repeat the same incorrect query."
                 )
             )

@@ -48,3 +48,56 @@ def test_retry_node_increments_second_attempt():
     state = make_state(False,1)
     result = retry_node(state)
     assert result["sql_retry_count"] == 2
+    
+def tests_detects_mcp_error_response():
+    ai_message = AIMessage(
+        content="",
+        tool_calls = [
+            {
+                "name":"run_readonly_query",
+                "args":{"sql":"SELECT fake_column FROM products"},
+                "id":"call_2",
+                "type":"tool_call"
+            }
+        ]
+    )
+    
+    tool_message = ToolMessage(
+        content = [
+            {
+                "type": "text",
+                "text": '{"success": false, "stage": "schema_validation"}'
+            }
+        ],
+        tool_call_id = "call_2",
+        name = "run_readonly_query"
+    )
+    
+    state = {
+        "messages": [ai_message,tool_message],
+        "sql_retry_count":0
+    }
+    
+    from agent.graph import has_sql_error
+    
+    assert has_sql_error(state["messages"]) is True
+    
+    
+def test_complete_retry_sequence():
+    state = make_state(False,0)
+    
+    assert route_after_tools(state) == "retry"
+    
+    result = retry_node(state)
+    state["sql_retry_count"] = result["sql_retry_count"]
+    assert state["sql_retry_count"] == 1 
+    
+    state = make_state(False, state["sql_retry_count"])
+    assert route_after_tools(state) == "retry"
+    
+    result = retry_node(state)
+    state["sql_retry_count"] = result["sql_retry_count"]
+    assert state["sql_retry_count"] == 2 
+    
+    state = make_state(False,state["sql_retry_count"])
+    assert route_after_tools(state) == "failure"
