@@ -46,6 +46,11 @@ async def main():
                 config = {"recursion_limit":12}
             )
             
+            print(
+                f"\nSQL retries used: "
+                f"{result.get('sql_retry_count', 0)}"
+            )
+            
             print("\n ------- AGENT EXECUTION TRACE ----")
             
             for message in result["messages"]:

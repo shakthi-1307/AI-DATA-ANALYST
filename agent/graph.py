@@ -4,7 +4,7 @@ from typing import TypedDict, Annotated
 from langgraph.graph import StateGraph, START, END
 from langgraph.graph.message import add_messages
 from langgraph.prebuilt import ToolNode, tools_condition
-from langchain_core.messages import SystemMessage, AnyMessage, ToolMessage, AIMessage
+from langchain_core.messages import SystemMessage, AnyMessage, ToolMessage, AIMessage, HumanMessage
 import json
 from agent.llm import llm
 from agent.system_prompt import SYSTEM_PROMPT
@@ -78,10 +78,10 @@ def retry_node(state:AnalystState):
     return {
         "sql_retry_count":retry_count,
         "messages":[
-            SystemMessage(
+            HumanMessage(
                 content = (
-                    "Your previous SQL query failed. Insepct the database "
-                    "error, correct the SQL query, and try again. "
+                    "Your previous SQL query failed. "
+                    "Insepct the database error, correct the SQL query, and try again. "
                     "Do not repeat the same incorrect query."
                 )
             )
