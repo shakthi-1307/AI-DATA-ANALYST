@@ -1,0 +1,45 @@
+
+[
+  {
+    "id": "eval_001",
+    "question": "Which product category generates the highest gross sales?",
+    "expected_metric": "gross_sales",
+    "expected_tables": ["products", "order_items"],
+    "metric_definition": "SUM(unit_price * quantity), grouped by category",
+    "expected_result":{
+        "category":"Electronics",
+        "gross_sales":176846853.07
+    }
+  },
+  {
+    "id": "eval_002",
+    "question": "What is the total revenue from completed payments?",
+    "expected_metric": "completed_payment_revenue",
+    "expected_tables": ["payments"],
+    "metric_definition": "SUM(amount) WHERE payment_status = 'completed'",
+    "expected_result":{
+        "completed_payment_revenue":264972113.82
+    }
+  },
+  {
+    "id": "eval_003",
+    "question": "Which city has the highest number of customers?",
+    "expected_metric": "customer_count",
+    "expected_tables": ["customers"],
+    "metric_definition": "COUNT(customer_id), grouped by city, excluding NULL cities",
+    "expected_result":{
+        "city":"Hyderabad",
+        "customer_count":111
+    }
+  },
+  {
+    "id": "eval_004",
+    "question": "What is the average order value based on completed payments?",
+    "expected_metric": "average_order_value",
+    "expected_tables": ["orders", "payments"],
+    "metric_definition": "SUM(completed payment amounts) / COUNT(DISTINCT orders with completed payments)",
+    "expected_result":{
+        "average_order_value": 32203.708534273213
+    }
+  }
+]
