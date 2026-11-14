@@ -19,7 +19,8 @@ def validate_dataset(dataset):
         "question",
         "expected_metric",
         "expected_tables",
-        "metric_definition"
+        "metric_definition",
+        "expected_result"
     }
     
     seen_ids = set()
@@ -32,9 +33,20 @@ def validate_dataset(dataset):
                 f"Missing fields in {case.get('id','unknown')} : {missing}"
             )
             
+        if not isinstance(case["expected_result"],dict):
+            raise ValueError(
+                f"Invalid expected_result in {case['id']}"
+            )
+            
+        if not case["expected_result"]:
+            raise ValueError(
+                f"Empty expected_result in {case['id']}"
+            )
+            
         if case["id"] in seen_ids:
             raise ValueError(f"Duplicate evaluation ID: {case['id']}")
         
         seen_ids.add(case["id"])
+        
         
     return True
