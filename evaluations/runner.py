@@ -10,3 +10,68 @@ from agent.mcp_connect import mcp_client
 async def evaluate_case(app, case):
     print(f"\nEvaluating: {case['id']}")
     print(f"Question: {case['question']}")
+    
+    result = await app.ainvoke(
+        {
+            "messages": [
+                HumanMessage(content = case["question"])
+            ],
+            "sql_retry_count":0
+        },
+        config = {"recursion_limit":15}
+    )
+    
+    sql_queries = []
+    database_results = []
+    
+    for message in result["messages"]:
+        if getattr(message,"tool_calls",None):
+            for call in message.tool_calls:
+                if call["name"] == "run_readonly_query":
+                    sql_queries.append(call["args"]["sql"])
+                    
+        if isinstance(message,ToolMessage):
+            if message.name == "run_readonly_query":
+                database_results.append(message.content)
+                
+    final_answer = result["messages"][-1].content
+    
+    return{
+        "id": case["id"],
+        "sql_queries":sql_queries,
+        "database_results":database_results,
+        "final_answer":final_answer,
+        "retry_count": result.get("sql_retry_count",0)
+    }
+        
+async def main():
+    dataset = load_golden_dataset()
+    validate_dataset(dataset)
+    
+    print(f"Loaded {len(dataset)} evaluation cases.")
+    
+    tools = await mcp_client.get_tools()
+    
+    print(f"Discovered {len(tools)} MCP tools.")
+    
+    app = build_graph(tools)
+    
+    results = []
+    
+    for case in dataset:
+        result = await evaluate_case(app,case)
+        results.append(result)
+        
+        print("\nSQL queries generated:")
+        for sql in result["sql_queries"]:
+            print(sql)
+            
+        print("\nFinal answer:")
+        print(result["final_answer"])
+        
+        print(f"Retries: {result['retry_count']}")
+        
+    print(f"\nCompleted {len(results)} evaluation cases. ")
+    
+if __name__ == "__main__":
+    asyncio.run(main())
