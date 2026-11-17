@@ -6,6 +6,7 @@ from evaluations.dataset_loader import (
 )
 from agent.graph import build_graph
 from agent.mcp_connect import mcp_client
+import json
 
 async def evaluate_case(app, case):
     print(f"\nEvaluating: {case['id']}")
@@ -32,7 +33,8 @@ async def evaluate_case(app, case):
                     
         if isinstance(message,ToolMessage):
             if message.name == "run_readonly_query":
-                database_results.append(message.content)
+                parsed_result = parse_database_result(message.content)
+                database_results.append(parsed_result)
                 
     final_answer = result["messages"][-1].content
     
@@ -43,6 +45,26 @@ async def evaluate_case(app, case):
         "final_answer":final_answer,
         "retry_count": result.get("sql_retry_count",0)
     }
+    
+def parse_database_result(content):
+    if isinstance(content,list):
+        content = next(
+            (
+                block["text"]
+                for block in content
+                if block.get("type") == "text"
+            ),
+            "{}"
+        )
+        
+    try:
+        return json.loads(content)
+    
+    except (json.JSONDecodeError,TypeError):
+        return {
+            "success":False,
+            "error":"Could not parse database response"
+        }
         
 async def main():
     dataset = load_golden_dataset()
@@ -65,6 +87,11 @@ async def main():
         print("\nSQL queries generated:")
         for sql in result["sql_queries"]:
             print(sql)
+            
+        print("\nStructured database results:")
+
+        for db_result in result["database_results"]:
+            print(json.dumps(db_result, indent=2))
             
         print("\nFinal answer:")
         print(result["final_answer"])
