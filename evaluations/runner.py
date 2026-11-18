@@ -8,6 +8,7 @@ from agent.graph import build_graph
 from agent.mcp_connect import mcp_client
 import json
 from evaluations.metrics.result_accuracy import compare_results
+from evaluations.metrics.sql_correctness import check_expected_tables
 
 
 async def evaluate_case(app, case):
@@ -39,6 +40,11 @@ async def evaluate_case(app, case):
             if message.name == "run_readonly_query":
                 parsed_result = parse_database_result(message.content)
                 database_results.append(parsed_result)
+    
+    sql_evaluation = check_expected_tables(
+        sql_queries,
+        case["expected_tables"]
+    )
 
     # Phase 2: Evaluate after collecting all results
     accuracy = {}
@@ -71,7 +77,8 @@ async def evaluate_case(app, case):
         "database_results": database_results,
         "final_answer": final_answer,
         "retry_count": result.get("sql_retry_count", 0),
-        "accuracy": accuracy
+        "accuracy": accuracy,
+        "sql_evaluation": sql_evaluation
     }
 
     
@@ -134,6 +141,17 @@ async def main():
                 f"(Expected: {comparison['expected']}, "
                 f"Actual: {comparison['actual']})"
             )
+        
+        print("\nSQL CORRECTNESS:")
+        
+        evaluation = result["sql_evaluation"]
+        
+        status = "PASS" if evaluation["passed"] else "FAIL"
+
+        print(f"Overall: {status}")
+        print(f"Expected tables: {evaluation['expected_tables']}")
+        print(f"Actual tables: {evaluation['actual_tables']}")
+        print(f"Missing tables: {evaluation['missing_tables']}")
         
         print(f"Retries: {result['retry_count']}")
         

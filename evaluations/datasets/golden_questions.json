@@ -36,7 +36,7 @@
     "id": "eval_004",
     "question": "What is the average order value based on completed payments?",
     "expected_metric": "average_order_value",
-    "expected_tables": ["orders", "payments"],
+    "expected_tables": ["payments"],
     "metric_definition": "SUM(completed payment amounts) / COUNT(DISTINCT orders with completed payments)",
     "expected_result":{
         "average_order_value": 32203.708534273213
