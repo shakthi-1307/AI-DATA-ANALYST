@@ -9,7 +9,10 @@ from agent.mcp_connect import mcp_client
 import json
 from evaluations.metrics.result_accuracy import compare_results
 from evaluations.metrics.sql_correctness import check_expected_tables
-
+from evaluations.metrics.sql_correctness import (
+    check_expected_tables,
+    check_gross_sales_expression
+)
 
 async def evaluate_case(app, case):
     print(f"\nEvaluating: {case['id']}")
@@ -45,6 +48,13 @@ async def evaluate_case(app, case):
         sql_queries,
         case["expected_tables"]
     )
+    
+    semantic_evaluation = None
+
+    if case["id"] == "eval_001":
+        semantic_evaluation = check_gross_sales_expression(
+            sql_queries[0]
+        )
 
     # Phase 2: Evaluate after collecting all results
     accuracy = {}
@@ -78,7 +88,8 @@ async def evaluate_case(app, case):
         "final_answer": final_answer,
         "retry_count": result.get("sql_retry_count", 0),
         "accuracy": accuracy,
-        "sql_evaluation": sql_evaluation
+        "sql_evaluation": sql_evaluation,
+        "semantic_evaluation": semantic_evaluation
     }
 
     
@@ -152,6 +163,22 @@ async def main():
         print(f"Expected tables: {evaluation['expected_tables']}")
         print(f"Actual tables: {evaluation['actual_tables']}")
         print(f"Missing tables: {evaluation['missing_tables']}")
+        
+        if result["semantic_evaluation"] is not None:
+            print("\nSQL SEMANTIC CORRECTNESS:")
+
+            evaluation = result["semantic_evaluation"]
+
+            print(
+                "Overall:",
+                "PASS" if evaluation["passed"] else "FAIL"
+            )
+
+            for check, passed in evaluation["checks"].items():
+                print(
+                    f"{check}:",
+                    "PASS" if passed else "FAIL"
+                )
         
         print(f"Retries: {result['retry_count']}")
         
