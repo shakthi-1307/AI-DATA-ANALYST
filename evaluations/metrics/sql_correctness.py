@@ -71,11 +71,11 @@ def check_gross_sales_expression(sql: str) -> dict:
             break
 
     # Check GROUP BY
-    has_group_by = parsed.args.get("group") is not None
+    has_group_by = check_group_by_category(parsed)
 
     # Check ORDER BY
     order = parsed.args.get("order")
-    has_order_by = order is not None
+    has_order_by = check_order_by_gross_sales(parsed)
 
     # Check LIMIT 1
     limit = parsed.args.get("limit")
@@ -97,3 +97,34 @@ def check_gross_sales_expression(sql: str) -> dict:
         "passed": all(checks.values()),
         "checks": checks
     }
+
+def check_group_by_category(parsed) -> bool:
+    group = parsed.args.get("group")
+    
+    if group is None:
+        return False 
+    
+    grouped_columns = {
+        column.name.lower()
+        for column in group.find_all(exp.Column)
+    }
+    
+    return "category" in grouped_columns
+
+def check_order_by_gross_sales(parsed) -> bool:
+    order = parsed.args.get("order")
+    
+    if order is None or not order.expressions:
+        return False 
+    
+    for ordering in order.expressions:
+        expression = ordering.this 
+        
+        if (
+            isinstance(expression, exp.Column)
+            and expression.name.lower() == "gross_sales"
+            and ordering.args.get("desc") is True 
+        ):
+            return True 
+    
+    return False
