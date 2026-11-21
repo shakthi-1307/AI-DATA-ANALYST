@@ -68,4 +68,64 @@ def test_wrong_order_by_column():
     assert result["passed"] is False
     assert result["checks"]["order_by"] is False
 
+
+def test_ascending_order_is_rejected():
+    sql = """
+        SELECT p.category,
+               SUM(oi.unit_price * oi.quantity) AS gross_sales
+        FROM order_items oi
+        JOIN products p
+          ON oi.product_id = p.product_id
+        GROUP BY p.category
+        ORDER BY gross_sales ASC
+        LIMIT 1
+    """
+
+    result = check_gross_sales_expression(sql)
+
+    assert result["passed"] is False
+    assert result["checks"]["order_by"] is False
+
+def test_addition_is_rejected():
+    sql = """
+        SELECT SUM(unit_price + quantity) AS gross_sales
+        FROM order_items
+        GROUP BY product_id
+        ORDER BY gross_sales DESC
+        LIMIT 1
+    """
+
+    result = check_gross_sales_expression(sql)
+
+    assert result["passed"] is False
+    assert result["checks"]["correct_gross_sales_formula"] is False
+    
+def test_division_is_rejected():
+    sql = """
+        SELECT SUM(unit_price / quantity) AS gross_sales
+        FROM order_items
+        GROUP BY product_id
+        ORDER BY gross_sales DESC
+        LIMIT 1
+    """
+
+    result = check_gross_sales_expression(sql)
+
+    assert result["passed"] is False
+    assert result["checks"]["correct_gross_sales_formula"] is False
+    
+def test_missing_products_tables_is_rejected():
+    sql = """
+        SELECT SUM(unit_price * quantity) AS gross_sales
+        FROM order_items
+        GROUP BY category
+        ORDER BY gross_sales DESC
+        LIMIT 1 
+    """
+    
+    result = check_gross_sales_expression(sql)
+    
+    assert result["passed"] is False 
+    assert result["checks"]["source_tables"] is False 
+    
     

@@ -56,9 +56,9 @@ def check_gross_sales_expression(sql: str) -> dict:
     has_correct_formula = False
 
     for sum_expression in sum_expressions:
-        multiplication = sum_expression.find(exp.Mul)
+        multiplication = sum_expression.this
 
-        if multiplication is None:
+        if not isinstance(multiplication, exp.Mul):
             continue
 
         columns = {
@@ -66,7 +66,7 @@ def check_gross_sales_expression(sql: str) -> dict:
             for column in multiplication.find_all(exp.Column)
         }
 
-        if {"unit_price", "quantity"}.issubset(columns):
+        if columns == {"unit_price", "quantity"}:
             has_correct_formula = True
             break
 
@@ -76,7 +76,7 @@ def check_gross_sales_expression(sql: str) -> dict:
     # Check ORDER BY
     order = parsed.args.get("order")
     has_order_by = check_order_by_gross_sales(parsed)
-
+    
     # Check LIMIT 1
     limit = parsed.args.get("limit")
     has_limit_one = (
@@ -90,7 +90,8 @@ def check_gross_sales_expression(sql: str) -> dict:
         "correct_gross_sales_formula": has_correct_formula,
         "group_by": has_group_by,
         "order_by": has_order_by,
-        "limit_one": has_limit_one
+        "limit_one": has_limit_one,
+        "source_tables": check_gross_sales_source_tables(parsed),
     }
 
     return {
@@ -100,16 +101,24 @@ def check_gross_sales_expression(sql: str) -> dict:
 
 def check_group_by_category(parsed) -> bool:
     group = parsed.args.get("group")
-    
+
     if group is None:
-        return False 
-    
-    grouped_columns = {
-        column.name.lower()
-        for column in group.find_all(exp.Column)
+        return False
+
+    product_aliases = {
+        table.alias_or_name.lower()
+        for table in parsed.find_all(exp.Table)
+        if table.name.lower() == "products"
     }
-    
-    return "category" in grouped_columns
+
+    for column in group.find_all(exp.Column):
+        if (
+            column.name.lower() == "category"
+            and column.table.lower() in product_aliases
+        ):
+            return True
+
+    return False
 
 def check_order_by_gross_sales(parsed) -> bool:
     order = parsed.args.get("order")
@@ -128,3 +137,11 @@ def check_order_by_gross_sales(parsed) -> bool:
             return True 
     
     return False
+
+def check_gross_sales_source_tables(parsed) -> bool:
+    tables = {
+        table.name.lower()
+        for table in parsed.find_all(exp.Table)
+    }
+    
+    return {"order_items","products"}.issubset(tables)
