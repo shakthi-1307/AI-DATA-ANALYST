@@ -128,4 +128,42 @@ def test_missing_products_tables_is_rejected():
     assert result["passed"] is False 
     assert result["checks"]["source_tables"] is False 
     
+def test_incorrect_product_join_is_rejected():
+    sql = """
+        SELECT 
+            p.category,
+            SUM(oi.unit_price * oi.quantity) AS gross_sales
+        FROM order_items oi 
+        JOIN products p 
+            ON oi.order_id = p.product_id
+        GROUP BY p.category
+        ORDER BY gross_sales DESC
+        LIMIT 1 
+    """
+    
+    result = check_gross_sales_expression(sql)
+    assert result["passed"] is False 
+    assert result["checks"]["product_join"] is False
+    
+def test_wrong_category_source_is_rejected():
+    sql = """
+        SELECT 
+            oi.product_id,
+            SUM(oi.unit_price * oi.quantity) AS gross_sales 
+        FROM order_items oi
+        JOIN products p
+            ON oi.product_id = p.product_id
+        GROUP BY oi.product_id
+        ORDER BY gross_sales DESC
+        LIMIT 1 
+    """
+    
+    result = check_gross_sales_expression(sql)
+    assert result["passed"] is False 
+    assert result["checks"]["group_by"] is False 
+    
+    
+    
+    
+    
     

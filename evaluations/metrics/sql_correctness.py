@@ -189,44 +189,84 @@ def check_gross_sales_formula(parsed) -> bool:
 
     return False
         
-def check_product_join(parsed) -> bool:
-    table_aliases = {
-        table.name.lower(): table.alias_or_name.lower()
-        for table in parsed.find_all(exp.Table)
-    }
+def check_average_order_value_expression(sql: str) -> dict:
+    try:
+        parsed = sqlglot.parse_one(sql, read="postgres")
+    except Exception as error:
+        return {
+            "passed": False,
+            "reason": str(error)
+        }
 
-    order_items_alias = table_aliases.get("order_items")
-    products_alias = table_aliases.get("products")
+    has_correct_formula = False
 
-    if not order_items_alias or not products_alias:
-        return False
+    for division in parsed.find_all(exp.Div):
+        numerator = division.this
+        denominator = division.expression
 
-    for join in parsed.find_all(exp.Join):
-        on_condition = join.args.get("on")
-
-        if on_condition is None:
+        if not (
+            isinstance(numerator, exp.Sum)
+            and isinstance(denominator, exp.Count)
+        ):
             continue
 
-        for equality in on_condition.find_all(exp.EQ):
+        numerator_column = numerator.this
+
+        denominator_column = denominator.this
+
+        correct_numerator = (
+            isinstance(numerator_column, exp.Column)
+            and numerator_column.name.lower() == "amount"
+        )
+
+        denominator_expression = denominator.this
+
+        correct_denominator = (
+            isinstance(denominator_expression, exp.Distinct)
+            and len(denominator_expression.expressions) == 1
+            and isinstance(
+                denominator_expression.expressions[0],
+                exp.Column
+            )
+            and denominator_expression.expressions[0].name.lower() == "order_id"
+        )
+
+        if correct_numerator and correct_denominator:
+            has_correct_formula = True
+            break
+
+    has_completed_filter = False
+
+    where = parsed.args.get("where")
+
+    if where:
+        for equality in where.find_all(exp.EQ):
             left = equality.this
             right = equality.expression
 
-            if not (
+            if (
                 isinstance(left, exp.Column)
-                and isinstance(right, exp.Column)
+                and left.name.lower() == "payment_status"
+                and isinstance(right, exp.Literal)
+                and right.this.lower() == "completed"
             ):
-                continue
+                has_completed_filter = True
 
-            columns = {
-                (left.table.lower(), left.name.lower()),
-                (right.table.lower(), right.name.lower()),
-            }
+    checks = {
+        "correct_formula": has_correct_formula,
+        "completed_payment_filter": has_completed_filter,
+        "source_table":check_aov_source_table(parsed),
+    }
 
-            if columns == {
-                (order_items_alias, "product_id"),
-                (products_alias, "product_id"),
-            }:
-                return True
-
-    return False
-
+    return {
+        "passed": all(checks.values()),
+        "checks": checks,
+    }
+    
+def check_aov_source_table(parsed) -> bool:
+    tables = {
+        table.name.lower()
+        for table in parsed.find_all(exp.Table)
+    }
+    
+    return "payments" in tables
