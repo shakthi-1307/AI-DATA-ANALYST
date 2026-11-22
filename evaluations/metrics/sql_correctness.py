@@ -53,7 +53,7 @@ def check_gross_sales_expression(sql: str) -> dict:
     )
 
     # Check for unit_price * quantity
-    has_correct_formula = False
+    has_correct_formula = check_gross_sales_formula(parsed)
 
     for sum_expression in sum_expressions:
         multiplication = sum_expression.this
@@ -92,6 +92,7 @@ def check_gross_sales_expression(sql: str) -> dict:
         "order_by": has_order_by,
         "limit_one": has_limit_one,
         "source_tables": check_gross_sales_source_tables(parsed),
+        "product_join": check_product_join(parsed),
     }
 
     return {
@@ -145,3 +146,87 @@ def check_gross_sales_source_tables(parsed) -> bool:
     }
     
     return {"order_items","products"}.issubset(tables)
+
+def check_gross_sales_formula(parsed) -> bool:
+    order_item_aliases = {
+        table.alias_or_name.lower()
+        for table in parsed.find_all(exp.Table)
+        if table.name.lower() == "order_items"
+    }
+
+    for sum_expression in parsed.find_all(exp.Sum):
+        multiplication = sum_expression.this
+
+        if not isinstance(multiplication, exp.Mul):
+            continue
+
+        columns = list(multiplication.find_all(exp.Column))
+
+        if len(columns) != 2:
+            continue
+
+        column_sources = {
+            (column.name.lower(), column.table.lower())
+            for column in columns
+        }
+
+        expected_columns = {
+            ("unit_price", alias)
+            for alias in order_item_aliases
+        } | {
+            ("quantity", alias)
+            for alias in order_item_aliases
+        }
+
+        if (
+            len(order_item_aliases) == 1
+            and column_sources == {
+                ("unit_price", next(iter(order_item_aliases))),
+                ("quantity", next(iter(order_item_aliases))),
+            }
+        ):
+            return True
+
+    return False
+        
+def check_product_join(parsed) -> bool:
+    table_aliases = {
+        table.name.lower(): table.alias_or_name.lower()
+        for table in parsed.find_all(exp.Table)
+    }
+
+    order_items_alias = table_aliases.get("order_items")
+    products_alias = table_aliases.get("products")
+
+    if not order_items_alias or not products_alias:
+        return False
+
+    for join in parsed.find_all(exp.Join):
+        on_condition = join.args.get("on")
+
+        if on_condition is None:
+            continue
+
+        for equality in on_condition.find_all(exp.EQ):
+            left = equality.this
+            right = equality.expression
+
+            if not (
+                isinstance(left, exp.Column)
+                and isinstance(right, exp.Column)
+            ):
+                continue
+
+            columns = {
+                (left.table.lower(), left.name.lower()),
+                (right.table.lower(), right.name.lower()),
+            }
+
+            if columns == {
+                (order_items_alias, "product_id"),
+                (products_alias, "product_id"),
+            }:
+                return True
+
+    return False
+
