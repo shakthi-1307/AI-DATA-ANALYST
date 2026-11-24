@@ -240,18 +240,23 @@ def check_average_order_value_expression(sql: str) -> dict:
     where = parsed.args.get("where")
 
     if where:
-        for equality in where.find_all(exp.EQ):
-            left = equality.this
-            right = equality.expression
+        
+        condition = where.this
+        
+        if not condition.find(exp.Or):
+            for equality in condition.find_all(exp.EQ):
+                left = equality.this
+                right = equality.expression
 
-            if (
-                isinstance(left, exp.Column)
-                and left.name.lower() == "payment_status"
-                and isinstance(right, exp.Literal)
-                and right.this.lower() == "completed"
-            ):
-                has_completed_filter = True
-
+                if (
+                    isinstance(left, exp.Column)
+                    and left.name.lower() == "payment_status"
+                    and isinstance(right, exp.Literal)
+                    and right.this.lower() == "completed"
+                ):
+                    has_completed_filter = True
+                    break 
+                
     checks = {
         "correct_formula": has_correct_formula,
         "completed_payment_filter": has_completed_filter,
