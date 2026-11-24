@@ -11,7 +11,8 @@ from evaluations.metrics.result_accuracy import compare_results
 from evaluations.metrics.sql_correctness import check_expected_tables
 from evaluations.metrics.sql_correctness import (
     check_expected_tables,
-    check_gross_sales_expression
+    check_gross_sales_expression,
+    check_average_order_value_expression
 )
 
 async def evaluate_case(app, case):
@@ -52,7 +53,10 @@ async def evaluate_case(app, case):
     semantic_evaluation = None
 
     if case["id"] == "eval_001":
-        semantic_evaluation = check_gross_sales_expression(
+        semantic_evaluation = check_gross_sales_expression(sql_queries[0])
+
+    elif case["id"] == "eval_004":
+        semantic_evaluation = check_average_order_value_expression(
             sql_queries[0]
         )
 

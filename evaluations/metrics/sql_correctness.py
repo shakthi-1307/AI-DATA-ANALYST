@@ -1,6 +1,47 @@
 import sqlglot 
 from sqlglot import exp 
 
+def check_product_join(parsed) -> bool:
+    table_aliases = {
+        table.name.lower(): table.alias_or_name.lower()
+        for table in parsed.find_all(exp.Table)
+    }
+
+    order_items_alias = table_aliases.get("order_items")
+    products_alias = table_aliases.get("products")
+
+    if not order_items_alias or not products_alias:
+        return False
+
+    for join in parsed.find_all(exp.Join):
+        on_condition = join.args.get("on")
+
+        if on_condition is None:
+            continue
+
+        for equality in on_condition.find_all(exp.EQ):
+            left = equality.this
+            right = equality.expression
+
+            if not (
+                isinstance(left, exp.Column)
+                and isinstance(right, exp.Column)
+            ):
+                continue
+
+            columns = {
+                (left.table.lower(), left.name.lower()),
+                (right.table.lower(), right.name.lower()),
+            }
+
+            if columns == {
+                (order_items_alias, "product_id"),
+                (products_alias, "product_id"),
+            }:
+                return True
+
+    return False
+
 def extract_tables(sql:str) -> set[str]:
     """Extract table names referenced in a SQL query."""
     

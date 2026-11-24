@@ -50,5 +50,19 @@ def test_or_condition_with_other_status_is_rejected():
     result = check_average_order_value_expression(sql)
 
     assert result["passed"] is False
+    
+def test_count_without_distinct_is_rejected():
+    sql = """
+        SELECT 
+            SUM(amount) / COUNT(order_id) AS avg_order_value
+        FROM payments 
+        WHERE payment_status = 'completed'
+    """
+    
+    result = check_average_order_value_expression(sql)
+    
+    assert result["passed"] is False 
+    assert result["checks"]["correct_formula"] is False
+    
 
     
