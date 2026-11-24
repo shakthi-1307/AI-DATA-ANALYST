@@ -37,4 +37,18 @@ def test_wrong_source_table_is_rejected():
     
     assert result["passed"] is False 
     assert result["checks"]["source_table"] is False
+
+def test_or_condition_with_other_status_is_rejected():
+    sql = """
+        SELECT
+            SUM(amount) / COUNT(DISTINCT order_id) AS avg_order_value
+        FROM payments
+        WHERE payment_status = 'completed'
+           OR payment_status = 'pending'
+    """
+
+    result = check_average_order_value_expression(sql)
+
+    assert result["passed"] is False
+
     
