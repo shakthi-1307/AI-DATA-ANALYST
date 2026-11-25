@@ -362,3 +362,29 @@ def self_check_completed_filter(select) -> bool:
             return True
 
     return False
+
+
+def check_average_order_value_queries(sql_queries: list[str]) -> dict:
+    if len(sql_queries) != 1:
+        return {
+            "passed": False,
+            "checks": {
+                "single_query": False
+            },
+            "reason": "AOV must be calculated in one SQL query."
+        }
+
+    result = check_average_order_value_expression(sql_queries[0])
+
+    if "checks" not in result:
+        return result
+
+    checks = {
+        "single_query": True,
+        **result["checks"]
+    }
+
+    return {
+        "passed": all(checks.values()),
+        "checks": checks
+    }
