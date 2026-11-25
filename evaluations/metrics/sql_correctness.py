@@ -230,6 +230,7 @@ def check_gross_sales_formula(parsed) -> bool:
 
     return False
         
+
 def check_average_order_value_expression(sql: str) -> dict:
     try:
         parsed = sqlglot.parse_one(sql, read="postgres")
@@ -239,7 +240,10 @@ def check_average_order_value_expression(sql: str) -> dict:
             "reason": str(error)
         }
 
-    has_correct_formula = False
+    selects = list(parsed.find_all(exp.Select))
+
+    # Check 1: SUM(amount) / COUNT(DISTINCT order_id)
+    correct_division = False
 
     for division in parsed.find_all(exp.Div):
         numerator = division.this
@@ -252,15 +256,12 @@ def check_average_order_value_expression(sql: str) -> dict:
             continue
 
         numerator_column = numerator.this
-
-        denominator_column = denominator.this
+        denominator_expression = denominator.this
 
         correct_numerator = (
             isinstance(numerator_column, exp.Column)
             and numerator_column.name.lower() == "amount"
         )
-
-        denominator_expression = denominator.this
 
         correct_denominator = (
             isinstance(denominator_expression, exp.Distinct)
@@ -273,46 +274,91 @@ def check_average_order_value_expression(sql: str) -> dict:
         )
 
         if correct_numerator and correct_denominator:
-            has_correct_formula = True
+            correct_division = True
             break
 
-    has_completed_filter = False
+    # Check 2: AVG(order_total) over grouped payment totals
+    correct_grouped_average = False
 
-    where = parsed.args.get("where")
+    for avg in parsed.find_all(exp.Avg):
+        avg_column = avg.this
 
-    if where:
-        
-        condition = where.this
-        
-        if not condition.find(exp.Or):
-            for equality in condition.find_all(exp.EQ):
-                left = equality.this
-                right = equality.expression
+        if not (
+            isinstance(avg_column, exp.Column)
+            and avg_column.name.lower() == "order_total"
+        ):
+            continue
 
-                if (
-                    isinstance(left, exp.Column)
-                    and left.name.lower() == "payment_status"
-                    and isinstance(right, exp.Literal)
-                    and right.this.lower() == "completed"
-                ):
-                    has_completed_filter = True
-                    break 
-                
+        for select in selects:
+            has_sum_amount = any(
+                isinstance(node, exp.Sum)
+                and isinstance(node.this, exp.Column)
+                and node.this.name.lower() == "amount"
+                for node in select.find_all(exp.Sum)
+            )
+
+            group = select.args.get("group")
+
+            has_order_id_grouping = (
+                group is not None
+                and any(
+                    isinstance(column, exp.Column)
+                    and column.name.lower() == "order_id"
+                    for column in group.find_all(exp.Column)
+                )
+            )
+
+            if has_sum_amount and has_order_id_grouping:
+                correct_grouped_average = True
+                break
+
+    # Check 3: completed-payment filter in any query scope
+    has_completed_filter = any(
+        self_check_completed_filter(select)
+        for select in selects
+    )
+
+    # Check 4: payments must be the source
+    has_payments_table = any(
+        table.name.lower() == "payments"
+        for table in parsed.find_all(exp.Table)
+    )
+
     checks = {
-        "correct_formula": has_correct_formula,
+        "correct_formula": (
+            correct_division or correct_grouped_average
+        ),
         "completed_payment_filter": has_completed_filter,
-        "source_table":check_aov_source_table(parsed),
+        "source_table": has_payments_table,
     }
 
     return {
         "passed": all(checks.values()),
         "checks": checks,
     }
-    
-def check_aov_source_table(parsed) -> bool:
-    tables = {
-        table.name.lower()
-        for table in parsed.find_all(exp.Table)
-    }
-    
-    return "payments" in tables
+
+
+def self_check_completed_filter(select) -> bool:
+    where = select.args.get("where")
+
+    if not where:
+        return False
+
+    condition = where.this
+
+    if condition.find(exp.Or):
+        return False
+
+    for equality in condition.find_all(exp.EQ):
+        left = equality.this
+        right = equality.expression
+
+        if (
+            isinstance(left, exp.Column)
+            and left.name.lower() == "payment_status"
+            and isinstance(right, exp.Literal)
+            and right.this.lower() == "completed"
+        ):
+            return True
+
+    return False
