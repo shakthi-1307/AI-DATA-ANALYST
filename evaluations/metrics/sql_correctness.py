@@ -388,3 +388,67 @@ def check_average_order_value_queries(sql_queries: list[str]) -> dict:
         "passed": all(checks.values()),
         "checks": checks
     }
+
+
+def check_completed_payment_revenue(sql: str) -> dict:
+    try:
+        parsed = sqlglot.parse_one(sql, read="postgres")
+    except Exception:
+        return {
+            "passed": False,
+            "reason": "Invalid SQL"
+        }
+
+    # Check whether payments is used.
+    source_tables = {
+        table.name.lower()
+        for table in parsed.find_all(exp.Table)
+    }
+    source_table_check = "payments" in source_tables
+
+    # Check for SUM(amount).
+    sum_amount_check = any(
+        isinstance(node, exp.Sum)
+        and isinstance(node.this, exp.Column)
+        and node.this.name.lower() == "amount"
+        for node in parsed.find_all(exp.Sum)
+    )
+
+    # Check for payment_status = 'completed'.
+    completed_filter_check = False
+    unsafe_or_check = True
+
+    for where in parsed.find_all(exp.Where):
+        condition = where.this
+
+        if condition.find(exp.Or):
+            unsafe_or_check = False
+
+        for node in condition.find_all(exp.EQ):
+            left = node.this
+            right = node.expression
+
+            if (
+                isinstance(left, exp.Column)
+                and left.name.lower() == "payment_status"
+                and isinstance(right, exp.Literal)
+                and right.this.lower() == "completed"
+            ) or (
+                isinstance(right, exp.Column)
+                and right.name.lower() == "payment_status"
+                and isinstance(left, exp.Literal)
+                and left.this.lower() == "completed"
+            ):
+                completed_filter_check = True
+
+    checks = {
+        "source_table": source_table_check,
+        "sum_amount": sum_amount_check,
+        "completed_payment_filter": completed_filter_check,
+        "no_unsafe_or_condition": unsafe_or_check
+    }
+
+    return {
+        "passed": all(checks.values()),
+        "checks": checks
+    }
