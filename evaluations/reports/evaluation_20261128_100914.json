@@ -1,0 +1,210 @@
+{
+    "evaluation_run": {
+        "timestamp": "2026-11-28T10:09:14.869306+00:00",
+        "total_cases": 4,
+        "passed": 4,
+        "total_execution_time_seconds": 38.488
+    },
+    "results": [
+        {
+            "id": "eval_001",
+            "sql_queries": [
+                "SELECT p.category,\n       SUM(oi.unit_price * oi.quantity) AS gross_sales\nFROM order_items oi\nJOIN products p ON oi.product_id = p.product_id\nGROUP BY p.category\nORDER BY gross_sales DESC\nLIMIT 1;"
+            ],
+            "database_results": [
+                {
+                    "success": true,
+                    "stage": "execution",
+                    "row_count": 1,
+                    "truncated_or_limited": false,
+                    "results": [
+                        {
+                            "category": "Electronics",
+                            "gross_sales": "176846853.07"
+                        }
+                    ]
+                }
+            ],
+            "final_answer": "**Result**\n\n| Product Category | Gross Sales (₹) |\n|------------------|-----------------|\n| Electronics      | ₹ 176,846,853.07 |\n\n**Explanation**\n\n- **Gross sales** are calculated as the sum of `unit_price × quantity` for every order item, without subtracting any discounts or returns.  \n- The query joined **order_items** with **products** to associate each sold item with its product category, summed the sales per category, and then ordered the totals descending to pick the top‑most category.\n\nThe data shows that **Electronics** is the category that generates the highest gross sales, amounting to **₹ 176.85 million**.",
+            "retry_count": 0,
+            "accuracy": {
+                "category": {
+                    "passed": true,
+                    "expected": "Electronics",
+                    "actual": "Electronics"
+                },
+                "gross_sales": {
+                    "passed": true,
+                    "expected": 176846853.07,
+                    "actual": "176846853.07"
+                }
+            },
+            "sql_evaluation": {
+                "passed": true,
+                "expected_tables": [
+                    "order_items",
+                    "products"
+                ],
+                "actual_tables": [
+                    "order_items",
+                    "products"
+                ],
+                "missing_tables": []
+            },
+            "semantic_evaluation": {
+                "passed": true,
+                "checks": {
+                    "correct_gross_sales_formula": true,
+                    "group_by": true,
+                    "order_by": true,
+                    "limit_one": true,
+                    "source_tables": true,
+                    "product_join": true
+                }
+            },
+            "execution_time_seconds": 13.326
+        },
+        {
+            "id": "eval_002",
+            "sql_queries": [
+                "SELECT SUM(amount) AS total_completed_payment_revenue FROM payments WHERE payment_status = 'completed';"
+            ],
+            "database_results": [
+                {
+                    "success": true,
+                    "stage": "execution",
+                    "row_count": 1,
+                    "truncated_or_limited": false,
+                    "results": [
+                        {
+                            "total_completed_payment_revenue": "264972113.82"
+                        }
+                    ]
+                }
+            ],
+            "final_answer": "**Total revenue from completed payments**\n\n- **Metric used:** *Completed Payment Revenue* – the sum of `amount` for all rows in the **payments** table where `payment_status = 'completed'`.\n\n**Result:** ₹ 264,972,113.82\n\nThis figure represents the total amount that has been successfully collected from customers for their orders.",
+            "retry_count": 0,
+            "accuracy": {
+                "completed_payment_revenue": {
+                    "passed": true,
+                    "expected": 264972113.82,
+                    "actual": "264972113.82"
+                }
+            },
+            "sql_evaluation": {
+                "passed": true,
+                "expected_tables": [
+                    "payments"
+                ],
+                "actual_tables": [
+                    "payments"
+                ],
+                "missing_tables": []
+            },
+            "semantic_evaluation": {
+                "passed": true,
+                "checks": {
+                    "source_table": true,
+                    "sum_amount": true,
+                    "completed_payment_filter": true,
+                    "no_unsafe_or_condition": true
+                }
+            },
+            "execution_time_seconds": 8.271
+        },
+        {
+            "id": "eval_003",
+            "sql_queries": [
+                "SELECT city, COUNT(*) AS customer_count\nFROM customers\nWHERE city IS NOT NULL\nGROUP BY city\nORDER BY customer_count DESC\nLIMIT 1;"
+            ],
+            "database_results": [
+                {
+                    "success": true,
+                    "stage": "execution",
+                    "row_count": 1,
+                    "truncated_or_limited": false,
+                    "results": [
+                        {
+                            "city": "Hyderabad",
+                            "customer_count": 111
+                        }
+                    ]
+                }
+            ],
+            "final_answer": "**Result**\n\n- **City with the most customers:** **Hyderabad**  \n- **Number of customers in Hyderabad:** **111**\n\nThis answer is based directly on the data in the **customers** table, counting all records that have a non‑null city value and selecting the city with the highest count.",
+            "retry_count": 0,
+            "accuracy": {
+                "city": {
+                    "passed": true,
+                    "expected": "Hyderabad",
+                    "actual": "Hyderabad"
+                },
+                "customer_count": {
+                    "passed": true,
+                    "expected": 111,
+                    "actual": 111
+                }
+            },
+            "sql_evaluation": {
+                "passed": true,
+                "expected_tables": [
+                    "customers"
+                ],
+                "actual_tables": [
+                    "customers"
+                ],
+                "missing_tables": []
+            },
+            "semantic_evaluation": null,
+            "execution_time_seconds": 8.189
+        },
+        {
+            "id": "eval_004",
+            "sql_queries": [
+                "SELECT AVG(order_total) AS average_order_value FROM (SELECT order_id, SUM(amount) AS order_total FROM payments WHERE payment_status = 'completed' GROUP BY order_id) AS completed_orders;"
+            ],
+            "database_results": [
+                {
+                    "success": true,
+                    "stage": "execution",
+                    "row_count": 1,
+                    "truncated_or_limited": false,
+                    "results": [
+                        {
+                            "average_order_value": "32203.708534273213"
+                        }
+                    ]
+                }
+            ],
+            "final_answer": "**Average Order Value (based on completed payments)**  \n\nThe average amount paid per order, considering only payments whose `payment_status` is **'completed'**, is **₹ 32,203.71**.\n\n*Method:*  \n- Filtered the **payments** table for rows with `payment_status = 'completed'`.  \n- Summed the `amount` for each `order_id` to get the total paid per order.  \n- Took the average of those per‑order totals.\n\nThis metric reflects **Completed Payment Revenue** per order, not gross or net sales.",
+            "retry_count": 0,
+            "accuracy": {
+                "average_order_value": {
+                    "passed": true,
+                    "expected": 32203.708534273213,
+                    "actual": "32203.708534273213"
+                }
+            },
+            "sql_evaluation": {
+                "passed": true,
+                "expected_tables": [
+                    "payments"
+                ],
+                "actual_tables": [
+                    "payments"
+                ],
+                "missing_tables": []
+            },
+            "semantic_evaluation": {
+                "passed": true,
+                "checks": {
+                    "single_query": true,
+                    "correct_formula": true,
+                    "completed_payment_filter": true,
+                    "source_table": true
+                }
+            },
+            "execution_time_seconds": 8.702
+        }
+    ]
+}

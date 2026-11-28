@@ -16,10 +16,13 @@ from evaluations.metrics.sql_correctness import (
     check_average_order_value_queries,
     check_completed_payment_revenue,
 )
+import time
 
 async def evaluate_case(app, case):
     print(f"\nEvaluating: {case['id']}")
     print(f"Question: {case['question']}")
+    
+    start_time = time.perf_counter()
 
     result = await app.ainvoke(
         {
@@ -30,6 +33,8 @@ async def evaluate_case(app, case):
         },
         config={"recursion_limit": 15}
     )
+    
+    execution_time = round(time.perf_counter() - start_time,3)
 
     sql_queries = []
     database_results = []
@@ -96,7 +101,8 @@ async def evaluate_case(app, case):
         "retry_count": result.get("sql_retry_count", 0),
         "accuracy": accuracy,
         "sql_evaluation": sql_evaluation,
-        "semantic_evaluation": semantic_evaluation
+        "semantic_evaluation": semantic_evaluation,
+        "execution_time_seconds": execution_time,
     }
 
     
@@ -119,7 +125,56 @@ def parse_database_result(content):
             "success":False,
             "error":"Could not parse database response"
         }
-        
+from datetime import datetime,timezone
+from pathlib import Path 
+
+
+from datetime import datetime, timezone
+from pathlib import Path
+
+
+def save_evaluation_report(results):
+    reports_dir = Path(__file__).parent / "reports"
+    reports_dir.mkdir(parents=True, exist_ok=True)
+
+    timestamp = datetime.now(timezone.utc)
+
+    report = {
+        "evaluation_run": {
+            "timestamp": timestamp.isoformat(),
+            "total_cases": len(results),
+            "passed": sum(
+                1 for result in results
+                if result["accuracy"]
+                and all(
+                    check["passed"]
+                    for check in result["accuracy"].values()
+                )
+            ),
+            "total_execution_time_seconds": round(
+                sum(
+                    result["execution_time_seconds"]
+                    for result in results
+                ),
+                3
+            )
+        },
+        "results": results
+    }
+
+    filename = (
+        "evaluation_"
+        + timestamp.strftime("%Y%m%d_%H%M%S")
+        + ".json"
+    )
+
+    report_path = reports_dir / filename
+
+    with report_path.open("w", encoding="utf-8") as file:
+        json.dump(report, file, indent=4, ensure_ascii=False)
+
+    print(f"\nEvaluation report saved: {report_path}")
+
 async def main():
     dataset = load_golden_dataset()
     validate_dataset(dataset)
@@ -188,8 +243,10 @@ async def main():
                 )
         
         print(f"Retries: {result['retry_count']}")
+        print(f"Execution time: {result['execution_time_seconds']} seconds")
         
     print(f"\nCompleted {len(results)} evaluation cases. ")
+    save_evaluation_report(results)
     
 if __name__ == "__main__":
     asyncio.run(main())
