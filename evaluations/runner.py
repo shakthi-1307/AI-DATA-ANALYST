@@ -13,7 +13,8 @@ from evaluations.metrics.sql_correctness import (
     check_expected_tables,
     check_gross_sales_expression,
     check_average_order_value_expression,
-    check_average_order_value_queries
+    check_average_order_value_queries,
+    check_completed_payment_revenue,
 )
 
 async def evaluate_case(app, case):
@@ -55,6 +56,9 @@ async def evaluate_case(app, case):
 
     if case["id"] == "eval_001" and sql_queries:
         semantic_evaluation = check_gross_sales_expression(sql_queries[0])
+
+    elif case["id"] == "eval_002" and sql_queries:
+        semantic_evaluation = check_completed_payment_revenue(sql_queries[0])
 
     elif case["id"] == "eval_004":
         semantic_evaluation = check_average_order_value_queries(sql_queries)
